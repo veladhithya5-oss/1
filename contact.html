@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | Artificial Intelligence Cosmos</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="container nav-container">
+            <div class="logo"><a href="index.html">Artificial<span>Intelligence</span>Cosmos</a></div>
+            <div class="mobile-toggle">☰</div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="services.html">Services</a></li>
+                    <li><a href="blog.html">Blog</a></li>
+                    <li><a href="contact.html" class="active">Contact Us</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="section" style="padding-top: 150px;">
+        <div class="container">
+            <h1>Connect with the Future</h1>
+            <p>Ready to deploy superior AI solutions? Let's discuss your project.</p>
+        </div>
+    </div>
+
+    <section class="section">
+        <div class="container">
+            <div class="card" style="max-width: 600px; margin: 0 auto;">
+                <form id="contactForm">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="John Doe" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="john@company.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="service">Interested Service</label>
+                        <select id="service" name="service" required>
+                            <option value="" disabled selected>Select a Service</option>
+                            <option value="Neural Networks">Neural Networks</option>
+                            <option value="MLOps">MLOps Solutions</option>
+                            <option value="Prompt Engineering">Prompt Engineering</option>
+                            <option value="Compliance">Compliance Engineering</option>
+                            <option value="Consulting">General Consulting</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="industry">Industry</label>
+                        <select id="industry" name="industry">
+                            <option value="Finance">Finance & Banking</option>
+                            <option value="Energy">Oil, Gas & Energy</option>
+                            <option value="Real Estate">Real Estate</option>
+                            <option value="Healthcare">Healthcare</option>
+                            <option value="Legal">Legal</option>
+                            <option value="Retail">Retail & Ecommerce</option>
+                            <option value="Gov">Government</option>
+                            <option value="Auto">Automotive</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Message</label>
+                        <textarea id="message" name="message" rows="5"
+                            placeholder="Tell us about your project requirements..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Send Message</button>
+                    <!-- Simulated send to veladhithya5@gmail.com handled in JS -->
+                </form>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <p>Or email us directly at: <a href="mailto:veladhithya5@gmail.com"
+                        style="color: var(--neon-cyan);">veladhithya5@gmail.com</a></p>
+                <p>Headquarters: 101 AI Boulevard, Tech City, Cosmos</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-grid">
+            <div class="footer-info">
+                <div class="logo">AI<span>Cosmos</span></div>
+                <p>Pioneering the next generation of artificial intelligence services.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="services.html">Services</a></li>
+                    <li><a href="blog.html">Blog</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Connect</h4>
+                <ul>
+                    <li><a href="mailto:veladhithya5@gmail.com">Email Us</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="container copyright">&copy; 2026 Artificial Intelligence Cosmos.</div>
+    </footer>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
