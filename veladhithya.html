@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veladhithya | Profile of Excellence</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .profile-hero {
+            text-align: center;
+            padding: 80px 0 40px;
+        }
+
+        .profile-img-container {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 4px solid var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);
+            margin: 0 auto 20px;
+            overflow: hidden;
+            background: var(--cosmos-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-img-placeholder {
+            font-size: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .award-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .award-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--neon-purple);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .award-card:hover {
+            background: rgba(188, 19, 254, 0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(188, 19, 254, 0.2);
+        }
+
+        .award-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .gallery-item {
+            height: 200px;
+            background: var(--cosmos-card);
+            border: 1px solid var(--cosmos-border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-family: var(--font-heading);
+            transition: 0.3s;
+        }
+
+        .gallery-item:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="container nav-container">
+            <div class="logo"><a href="index.html">Artificial<span>Intelligence</span>Cosmos</a></div>
+            <div class="mobile-toggle">☰</div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="services.html">Services</a></li>
+                    <li><a href="blog.html">Blog</a></li>
+                    <li><a href="veladhithya.html" class="active">Veladhithya</a></li>
+                    <li><a href="contact.html">Contact Us</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="section" style="padding-top: 120px;">
+        <div class="container">
+            <div class="profile-hero">
+                <div class="profile-img-container">
+                    <div class="profile-img-placeholder">V</div>
+                </div>
+                <h1>Veladhithya</h1>
+                <p style="font-size: 1.5rem; color: var(--neon-cyan);">Scholar. Innovator. Achiever.</p>
+            </div>
+
+            <div class="card" style="margin-bottom: 4rem;">
+                <h2>About Veladhithya</h2>
+                <p>
+                    Veladhithya stands as a beacon of academic excellence and intellectual curiosity.
+                    Known not just as a "good student," but as a visionary learner who consistently pushes the
+                    boundaries of knowledge.
+                    With a relentless passion for technology, science, and the arts, Veladhithya has cultivated a
+                    reputation for being
+                    a disciplined scholar and a creative problem solver.
+                </p>
+                <p>
+                    His journey is marked by a series of distinguished accolades that testify to his hard work,
+                    dedication, and innate talent in every endeavor he pursues.
+                </p>
+            </div>
+
+            <h2 class="section-title">Hall of Fame & Awards</h2>
+            <div class="award-grid">
+                <div class="award-card">
+                    <span class="award-icon">🏆</span>
+                    <h3>Academic Excellence</h3>
+                    <p>Consistently ranking at the top of the class with outstanding grades in all core subjects.</p>
+                </div>
+                <div class="award-card">
+                    <span class="award-icon">🥇</span>
+                    <h3>Best Innovator</h3>
+                    <p>Awarded for developing a unique solution to a community problem using sustainable technology.</p>
+                </div>
+                <div class="award-card">
+                    <span class="award-icon">🔬</span>
+                    <h3>Science Fair Winner</h3>
+                    <p>First place in the Regional Science Fair for groundbreaking research in renewable energy.</p>
+                </div>
+                <div class="award-card">
+                    <span class="award-icon">♟️</span>
+                    <h3>Strategic Mastermind</h3>
+                    <p>Champion of the Inter-School Chess Tournament, demonstrating superior strategic thinking.</p>
+                </div>
+                <div class="award-card">
+                    <span class="award-icon">🗣️</span>
+                    <h3>Orator of the Year</h3>
+                    <p>Recognized for exceptional public speaking and debate skills on national platforms.</p>
+                </div>
+                <div class="award-card">
+                    <span class="award-icon">🌟</span>
+                    <h3>Student of the Year</h3>
+                    <p>The prestigious overall excellence award for leadership, character, and academic performance.</p>
+                </div>
+            </div>
+
+            <h2 class="section-title" style="margin-top: 4rem;">Gallery of Achievements</h2>
+            <div class="gallery-grid">
+                <div class="gallery-item">Award Ceremony Photo</div>
+                <div class="gallery-item">Science Project Display</div>
+                <div class="gallery-item">Debate Competition</div>
+                <div class="gallery-item">Community Service</div>
+                <div class="gallery-item">Graduation Moment</div>
+                <div class="gallery-item">Team Leadership</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-grid">
+            <div class="footer-info">
+                <div class="logo">AI<span>Cosmos</span></div>
+                <p>Pioneering the next generation of artificial intelligence services.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="services.html">Services</a></li>
+                    <li><a href="veladhithya.html">Veladhithya</a></li>
+                    <li><a href="blog.html">Blog</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Connect</h4>
+                <ul>
+                    <li><a href="mailto:veladhithya5@gmail.com">Email Us</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="container copyright">&copy; 2026 Artificial Intelligence Cosmos. All rights reserved.</div>
+    </footer>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
