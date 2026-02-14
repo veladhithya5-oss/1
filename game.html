@@ -229,6 +229,35 @@
             display: none !important;
         }
 
+        /* Speed Controls */
+        .speed-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 5px;
+            pointer-events: auto;
+        }
+
+        .speed-btn {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--cosmos-border);
+            color: var(--text-secondary);
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--font-heading);
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .speed-btn.active,
+        .speed-btn:hover {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
         /* Leaderboard */
         .leaderboard {
             position: absolute;
@@ -316,6 +345,14 @@
                     <div id="res-control" class="res-val">0%</div>
                 </div>
             </div>
+        </div>
+
+        <!-- Game Speed Controls -->
+        <div class="speed-controls">
+            <button class="speed-btn" id="speed-0" onclick="setGameSpeed(0)">⏸</button>
+            <button class="speed-btn active" id="speed-1" onclick="setGameSpeed(1)">1x</button>
+            <button class="speed-btn" id="speed-2" onclick="setGameSpeed(2)">2x</button>
+            <button class="speed-btn" id="speed-3" onclick="setGameSpeed(3)">3x</button>
         </div>
 
         <div class="leaderboard" id="leaderboard">
