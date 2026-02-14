@@ -282,6 +282,44 @@
             font-weight: bold;
         }
 
+        /* Events Panel */
+        .events-panel {
+            position: absolute;
+            top: 350px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            pointer-events: none;
+            min-width: 200px;
+            max-width: 250px;
+        }
+
+        /* Notification Animations */
+        @keyframes slideDown {
+            from {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+        }
+
         /* Selection Overlay Text */
         #selectionOverlay {
             position: absolute;
@@ -345,6 +383,20 @@
                     <div id="res-control" class="res-val">0%</div>
                 </div>
             </div>
+            <div class="resource-card">
+                <span class="res-icon">👥</span>
+                <div>
+                    <span class="res-label">POPULATION</span>
+                    <div id="res-population" class="res-val">0</div>
+                </div>
+            </div>
+            <div class="resource-card">
+                <span class="res-icon">⚖️</span>
+                <div>
+                    <span class="res-label">STABILITY</span>
+                    <div id="res-stability" class="res-val">100%</div>
+                </div>
+            </div>
         </div>
 
         <!-- Game Speed Controls -->
@@ -356,6 +408,10 @@
         </div>
 
         <div class="leaderboard" id="leaderboard">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="events-panel" id="events-log">
             <!-- Populated by JS -->
         </div>
 
