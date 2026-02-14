@@ -38,7 +38,7 @@ const COLORS = [
 ];
 
 class Nation {
-    constructor(id, color) {
+    constructor(id, color, name) {
         this.id = id;
         this.color = color;
         this.money = 0; // Liquidity
@@ -46,7 +46,7 @@ class Nation {
         this.controlledCountries = 0;
         this.gdp = 0; // Total economic power
         this.isAI = true;
-        this.name = "Nation " + id;
+        this.name = name || "Nation " + id;
     }
 }
 
@@ -142,11 +142,12 @@ function startGamePlay(startCountry) {
     // Nation 1 is Player
     nations = [];
     // 0: Neutral (Abstract)
-    for (let i = 0; i < COLORS.length; i++) {
-        let n = new Nation(i, COLORS[i]);
-        if (i === 1) n.isAI = false;
-        nations.push(n);
-    }
+    nations.push(new Nation(0, COLORS[0], 'Neutral'));
+
+    // Create Player Nation based on started country
+    let playerNation = new Nation(1, COLORS[1], startCountry.name);
+    playerNation.isAI = false;
+    nations.push(playerNation);
 
     gameState.playerNationId = 1;
 
@@ -160,8 +161,12 @@ function startGamePlay(startCountry) {
 
     let aiCount = 0;
     for (let c of candidates) {
-        if (aiCount >= nations.length - 2) break; // Keep some neutral
+        if (aiCount >= 7) break; // Limit AI nations
         let nationId = aiCount + 2;
+        // Use real country name for AI nation too
+        let aiNation = new Nation(nationId, COLORS[nationId % COLORS.length], c.name);
+        nations.push(aiNation);
+
         conquerCountry(c, nationId, true);
         aiCount++;
     }
@@ -206,7 +211,7 @@ function updateGameLogic() {
             if (n.id === 0) return;
             // Income = GDP * Multiplier
             // Simple model:
-            let income = n.gdp * 0.1;
+            let income = n.gdp * 0.2; // Increased income rate
             n.money += income;
         });
 
@@ -307,6 +312,8 @@ canvas.addEventListener('mousemove', e => {
         projection.translate([currTranslate[0] + dx, currTranslate[1] + dy]);
 
         lastMouse = { x: e.clientX, y: e.clientY };
+    } else {
+        // Hover Logic for Tooltips (Optional)
     }
 });
 
@@ -325,6 +332,7 @@ canvas.addEventListener('wheel', e => {
     const newScale = currentScale - (e.deltaY * zoomIntensity * currentScale);
     if (newScale > 50 && newScale < 10000) {
         projection.scale(newScale);
+        // Better zooming towards mouse requires modifying translate too
     }
 });
 
