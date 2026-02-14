@@ -1,5 +1,5 @@
-// Dummynation Clone - Complete Feature Set
-// Real World Map, Full Economy, Diplomacy, Save/Load
+// Dummynation Clone - Complete Feature Set v2
+// Real World Map, Full Economy, Diplomacy, Save/Load, Events, Animations
 
 const canvas = document.getElementById('worldMap');
 const ctx = canvas.getContext('2d');
@@ -8,26 +8,30 @@ const ctx = canvas.getContext('2d');
 let gameState = {
     running: false,
     paused: false,
-    gameSpeed: 1, // 0=paused, 1=normal, 2=fast, 3=fastest
-    mode: 'start', // start, selection, playing
+    gameSpeed: 1,
+    mode: 'start',
     money: 0,
     gdp: 0,
     incomeCheck: 0,
     aiCheck: 0,
-    selectedAction: 'attack', // attack, reinforce, diplomacy
+    eventCheck: 0,
+    selectedAction: 'attack',
     troopPercent: 50,
     playerNationId: null,
     selectedCountryId: null,
     hoveredCountryId: null,
     turn: 0,
-    year: 2024
+    year: 2024,
+    showLabels: true
 };
 
 // Map Data
 let countries = [];
 let nations = [];
-let alliances = []; // {nation1, nation2, turns}
-let wars = []; // {attacker, defender, turns}
+let alliances = [];
+let wars = [];
+let particles = []; // Attack animations
+let events = []; // Game events log
 
 // Configuration
 const COLORS = [
@@ -42,6 +46,43 @@ const TECH_TREE = {
     defense: { name: 'Defense Systems', cost: 1200, effect: 0.12 }
 };
 
+const RANDOM_EVENTS = [
+    { name: 'Economic Boom', effect: 'gdp', value: 1.2, chance: 0.05 },
+    { name: 'Rebellion', effect: 'stability', value: -0.3, chance: 0.03 },
+    { name: 'Natural Disaster', effect: 'reserves', value: -0.5, chance: 0.02 },
+    { name: 'Tech Breakthrough', effect: 'military', value: 0.1, chance: 0.04 },
+    { name: 'Trade Agreement', effect: 'money', value: 500, chance: 0.06 }
+];
+
+// Particle class for animations
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.life = 1.0;
+        this.color = color;
+        this.size = Math.random() * 3 + 2;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02;
+        this.vy += 0.1;
+    }
+
+    draw(ctx) {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
 class Nation {
     constructor(id, color, name) {
         this.id = id;
@@ -52,6 +93,8 @@ class Nation {
         this.defense = 1.0;
         this.controlledCountries = 0;
         this.gdp = 0;
+        this.population = 0;
+        this.stability = 1.0;
         this.isAI = true;
         this.name = name || "Nation " + id;
         this.allies = [];
@@ -71,6 +114,16 @@ class Country {
         this.gdp = this.baseGdp;
         this.reserves = Math.floor(this.gdp / 2);
         this.center = d3.geoCentroid(feature);
+        this.population = Math.floor(this.gdp * 10);
+        this.stability = 1.0;
+    }
+
+    getNeighbors() {
+        return countries.filter(c => {
+            if (c.id === this.id) return false;
+            const dist = Math.hypot(c.center[0] - this.center[0], c.center[1] - this.center[1]);
+            return dist < 15;
+        });
     }
 }
 
@@ -91,7 +144,7 @@ window.onload = async () => {
 
     try {
         await loadMapData();
-        loadGameState(); // Try to load saved game
+        loadGameState();
         draw();
     } catch (e) {
         console.error("Map Error", e);
@@ -129,7 +182,6 @@ function startGamePlay(startCountry) {
     document.getElementById('selectionOverlay').classList.add('hidden');
     document.getElementById('gameUI').classList.remove('hidden');
 
-    // Init Nations
     nations = [];
     nations.push(new Nation(0, COLORS[0], 'Neutral'));
 
@@ -166,17 +218,29 @@ function conquerCountry(country, nationId, instant = false) {
         let oldOwner = nations[country.owner];
         oldOwner.controlledCountries--;
         oldOwner.gdp -= country.gdp;
+        oldOwner.population -= country.population;
     }
 
     country.owner = nationId;
     let newOwner = nations[nationId];
     newOwner.controlledCountries++;
     newOwner.gdp += country.gdp;
+    newOwner.population += country.population;
 
     if (instant) {
         country.reserves = country.gdp;
+        country.stability = 1.0;
     } else {
         country.reserves = Math.floor(country.gdp * 0.1);
+        country.stability = 0.3;
+    }
+
+    // Particles
+    const pos = projection(country.center);
+    if (pos) {
+        for (let i = 0; i < 20; i++) {
+            particles.push(new Particle(pos[0], pos[1], newOwner.color));
+        }
     }
 
     checkVictoryConditions();
@@ -194,7 +258,6 @@ function checkVictoryConditions() {
         showVictoryScreen();
     }
 
-    // Check if player lost all territories
     if (player.controlledCountries === 0) {
         gameState.running = false;
         showDefeatScreen();
@@ -213,7 +276,6 @@ function showDefeatScreen() {
 function updateGameLogic() {
     if (gameState.mode !== 'playing' || gameState.paused) return;
 
-    // Speed multiplier
     const speedMult = gameState.gameSpeed;
 
     gameState.incomeCheck += speedMult;
@@ -222,7 +284,19 @@ function updateGameLogic() {
 
         nations.forEach(n => {
             if (n.id === 0) return;
-            let income = n.gdp * 0.2 * n.economy;
+
+            let avgStability = 0;
+            let count = 0;
+            countries.forEach(c => {
+                if (c.owner === n.id) {
+                    avgStability += c.stability;
+                    count++;
+                }
+            });
+            avgStability = count > 0 ? avgStability / count : 1;
+            n.stability = avgStability;
+
+            let income = n.gdp * 0.2 * n.economy * avgStability;
             n.money += income;
         });
 
@@ -231,6 +305,10 @@ function updateGameLogic() {
                 if (c.reserves < c.gdp) {
                     c.reserves += Math.ceil(c.gdp * 0.05);
                 }
+                if (c.stability < 1.0) {
+                    c.stability = Math.min(1.0, c.stability + 0.02);
+                }
+                c.population = Math.floor(c.gdp * 10 * c.stability);
             }
         });
 
@@ -244,6 +322,17 @@ function updateGameLogic() {
         runAI();
         gameState.aiCheck = 0;
     }
+
+    gameState.eventCheck += speedMult;
+    if (gameState.eventCheck > 300) {
+        triggerRandomEvent();
+        gameState.eventCheck = 0;
+    }
+
+    particles = particles.filter(p => {
+        p.update();
+        return p.life > 0;
+    });
 }
 
 function runAI() {
@@ -251,12 +340,78 @@ function runAI() {
         if (!n.isAI || n.id === 0) return;
 
         if (n.money > 1000) {
-            let target = countries[Math.floor(Math.random() * countries.length)];
-            if (target.owner !== n.id && !isAlly(n.id, target.owner)) {
+            const ownedCountries = countries.filter(c => c.owner === n.id);
+            if (ownedCountries.length === 0) return;
+
+            let neighbors = [];
+            ownedCountries.forEach(c => {
+                const countryNeighbors = c.getNeighbors();
+                countryNeighbors.forEach(nc => {
+                    if (nc.owner !== n.id && !isAlly(n.id, nc.owner)) {
+                        neighbors.push(nc);
+                    }
+                });
+            });
+
+            let target;
+            if (neighbors.length > 0 && Math.random() > 0.3) {
+                target = neighbors[Math.floor(Math.random() * neighbors.length)];
+            } else {
+                target = countries[Math.floor(Math.random() * countries.length)];
+            }
+
+            if (target && target.owner !== n.id && !isAlly(n.id, target.owner)) {
                 attemptAttack(n, target, 50);
             }
         }
     });
+}
+
+function triggerRandomEvent() {
+    if (Math.random() > 0.7) return;
+
+    const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
+    if (Math.random() > event.chance) return;
+
+    const targetNation = nations[Math.floor(Math.random() * nations.length)];
+    if (targetNation.id === 0) return;
+
+    switch (event.effect) {
+        case 'gdp':
+            targetNation.gdp *= event.value;
+            break;
+        case 'stability':
+            countries.forEach(c => {
+                if (c.owner === targetNation.id) {
+                    c.stability = Math.max(0, Math.min(1, c.stability + event.value));
+                }
+            });
+            break;
+        case 'reserves':
+            countries.forEach(c => {
+                if (c.owner === targetNation.id) {
+                    c.reserves = Math.max(0, c.reserves * (1 + event.value));
+                }
+            });
+            break;
+        case 'military':
+            targetNation.military += event.value;
+            break;
+        case 'money':
+            targetNation.money += event.value;
+            break;
+    }
+
+    events.unshift({
+        turn: gameState.turn,
+        nation: targetNation.name,
+        event: event.name
+    });
+    if (events.length > 10) events.pop();
+
+    if (targetNation.id === gameState.playerNationId) {
+        showNotification(`${event.name}!`, targetNation.color);
+    }
 }
 
 function isAlly(nation1, nation2) {
@@ -285,7 +440,6 @@ function attemptAttack(attackerNation, targetCountry, percent) {
 }
 
 function playSound(type) {
-    // Placeholder for sound effects
     console.log(`Sound: ${type}`);
 }
 
@@ -309,7 +463,6 @@ canvas.addEventListener('mousemove', e => {
         projection.translate([currTranslate[0] + dx, currTranslate[1] + dy]);
         lastMouse = { x: e.clientX, y: e.clientY };
     } else {
-        // Hover detection
         const coords = projection.invert([e.clientX, e.clientY]);
         if (coords) {
             const hovered = countries.find(c => d3.geoContains(c.feature, coords));
@@ -422,6 +575,7 @@ function updateTooltip(x, y, country) {
             <div style="color: ${owner.color};">Owner: ${owner.name}</div>
             <div>GDP: ${formatNumber(country.gdp)}</div>
             <div>Reserves: ${formatNumber(country.reserves)}</div>
+            <div>Stability: ${Math.floor(country.stability * 100)}%</div>
         `;
         tooltip.style.left = (x + 15) + 'px';
         tooltip.style.top = (y + 15) + 'px';
@@ -445,7 +599,6 @@ function draw() {
 
     pathGenerator = d3.geoPath().projection(projection).context(ctx);
 
-    // Draw Sphere
     ctx.beginPath();
     pathGenerator({ type: "Sphere" });
     ctx.fillStyle = '#111827';
@@ -453,7 +606,6 @@ function draw() {
     ctx.strokeStyle = '#334155';
     ctx.stroke();
 
-    // Draw Countries
     countries.forEach(c => {
         ctx.beginPath();
         pathGenerator(c.feature);
@@ -461,7 +613,9 @@ function draw() {
         if (c.owner === 0) {
             ctx.fillStyle = '#1f2937';
         } else {
-            ctx.fillStyle = nations[c.owner].color;
+            const baseColor = nations[c.owner].color;
+            const stability = c.stability || 1;
+            ctx.fillStyle = adjustColorBrightness(baseColor, stability);
         }
         ctx.fill();
 
@@ -469,7 +623,6 @@ function draw() {
         ctx.strokeStyle = 'rgba(255,255,255,0.1)';
         ctx.stroke();
 
-        // Highlight
         if (gameState.selectedCountryId === c.id) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ffffff';
@@ -482,6 +635,38 @@ function draw() {
             ctx.stroke();
         }
     });
+
+    // Country Labels
+    if (gameState.showLabels && projection.scale() > 300) {
+        ctx.font = '10px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        countries.forEach(c => {
+            if (c.owner === 0) return;
+            const pos = projection(c.center);
+            if (pos && pos[0] >= 0 && pos[0] <= canvas.width && pos[1] >= 0 && pos[1] <= canvas.height) {
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.fillText(c.name, pos[0] + 1, pos[1] + 1);
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.fillText(c.name, pos[0], pos[1]);
+            }
+        });
+    }
+
+    particles.forEach(p => p.draw(ctx));
+}
+
+function adjustColorBrightness(hex, factor) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    const newR = Math.floor(r * factor);
+    const newG = Math.floor(g * factor);
+    const newB = Math.floor(b * factor);
+
+    return `rgb(${newR}, ${newG}, ${newB})`;
 }
 
 // --- UI Helpers ---
@@ -525,7 +710,14 @@ function updateUI() {
     let pct = ((player.gdp / worldGDP) * 100).toFixed(1);
     document.getElementById('res-control').innerText = pct + '%';
 
+    const popEl = document.getElementById('res-population');
+    if (popEl) popEl.innerText = formatNumber(player.population);
+
+    const stabEl = document.getElementById('res-stability');
+    if (stabEl) stabEl.innerText = Math.floor(player.stability * 100) + '%';
+
     updateLeaderboard();
+    updateEventsLog();
 }
 
 function updateLeaderboard() {
@@ -546,6 +738,44 @@ function updateLeaderboard() {
     lb.innerHTML = html;
 }
 
+function updateEventsLog() {
+    const eventsEl = document.getElementById('events-log');
+    if (!eventsEl) return;
+
+    let html = '<div style="margin-bottom:10px; color:#94a3b8; font-size:0.8rem;">RECENT EVENTS</div>';
+    events.slice(0, 5).forEach(e => {
+        html += `<div style="font-size:0.75rem; margin-bottom:3px; color:#cbd5e1;">Turn ${e.turn}: ${e.event} (${e.nation})</div>`;
+    });
+    eventsEl.innerHTML = html;
+}
+
+function showNotification(message, color = '#00f3ff') {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.95);
+        border: 2px solid ${color};
+        padding: 15px 30px;
+        border-radius: 8px;
+        color: ${color};
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        z-index: 1000;
+        box-shadow: 0 0 20px ${color};
+        animation: slideDown 0.3s ease;
+    `;
+    notif.innerText = message;
+    document.body.appendChild(notif);
+
+    setTimeout(() => {
+        notif.style.animation = 'slideUp 0.3s ease';
+        setTimeout(() => notif.remove(), 300);
+    }, 3000);
+}
+
 function formatNumber(num) {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'T';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'B';
@@ -564,7 +794,8 @@ function saveGameState() {
             id: c.id,
             owner: c.owner,
             reserves: c.reserves,
-            gdp: c.gdp
+            gdp: c.gdp,
+            stability: c.stability
         })),
         alliances,
         wars
@@ -579,7 +810,6 @@ function loadGameState() {
 
     try {
         const data = JSON.parse(saved);
-        // Restore game state logic here
         console.log('Save game found');
     } catch (e) {
         console.error('Failed to load save', e);
