@@ -1,4 +1,5 @@
-// Dummynation-style Grand Strategy Game Logic (Real World Map)
+// Dummynation-like Game Logic
+// Features: Real map, Liquidity, Troop Slider, D3 Rendering
 
 const canvas = document.getElementById('worldMap');
 const ctx = canvas.getContext('2d');
@@ -6,59 +7,68 @@ const ctx = canvas.getContext('2d');
 // Game State
 let gameState = {
     running: false,
-    money: 1000,
+    mode: 'start', // start, selection, playing
+    money: 0,
+    gdp: 0,
     incomeCheck: 0,
-    selectedMode: 'attack', // attack, reinforce
-    transform: { k: 1, x: 0, y: 0 }, // Global Transform
-    selectedCountryId: null, // ID of country selected by player
-    hoverCountryId: null
+    aiCheck: 0,
+    selectedAction: 'attack', // attack, reinforce
+    troopPercent: 50, // 1-100
+    transform: { k: 1, x: 0, y: 0 },
+    playerNationId: null,
+    selectedCountryId: null
 };
 
 // Map Data
-let countries = []; // Array of Country objects
-let nations = [];   // Array of Nation objects (Player, AI factions)
+let countries = [];
+let nations = [];
 
 // Configuration
+// Nation Colors (Dummynation style: vibrant, specific)
 const COLORS = [
-    '#334155', // 0: Neutral/Sea
+    '#334155', // 0: Neutral
     '#00f3ff', // 1: Player (Cyan)
-    '#ef4444', // 2: Enemy Red
-    '#22c55e', // 3: Enemy Green
-    '#eab308', // 4: Enemy Yellow
-    '#a855f7', // 5: Enemy Purple
-    '#f97316'  // 6: Enemy Orange
+    '#ef4444',
+    '#22c55e',
+    '#eab308',
+    '#a855f7',
+    '#f97316',
+    '#ec4899',
+    '#14b8a6'
 ];
-
-const NATION_NAMES = ['Neutral', 'You', 'Red Federation', 'Green Republic', 'Yellow Empire', 'Purple Union', 'Orange State'];
 
 class Nation {
     constructor(id, color) {
         this.id = id;
         this.color = color;
-        this.money = 1000;
-        this.income = 10;
-        this.military = 1.0;
+        this.money = 0; // Liquidity
+        this.military = 1.0; // Tech multiplier
         this.controlledCountries = 0;
-        this.controlledArea = 0;
-        this.name = NATION_NAMES[id] || 'Nation ' + id;
-        this.isAI = id !== 1;
+        this.gdp = 0; // Total economic power
+        this.isAI = true;
+        this.name = "Nation " + id;
     }
 }
 
 class Country {
     constructor(feature) {
-        this.feature = feature; // GeoJSON feature
+        this.feature = feature;
         this.id = feature.id || Math.random().toString(36).substr(2, 9);
-        this.name = feature.properties.name || "Unknown Region";
-        this.owner = 0;         // 0 = Neutral
-        this.power = 100 + Math.random() * 900; // Defense/Military value
-        this.center = d3.geoCentroid(feature); // [lon, lat]
-        this.area = d3.geoArea(feature);       // Relative area size
+        this.name = feature.properties.name || "Unknown";
+        this.owner = 0; // 0 = Neutral
+
+        // Stats derived from area (proxy for GDP/Pop in this MVP)
+        const area = d3.geoArea(feature);
+        // Base GDP ~ area * constant
+        this.baseGdp = Math.max(10, Math.floor(area * 100000));
+        this.gdp = this.baseGdp;
+
+        // Reserves (Troops stationed)
+        this.reserves = Math.floor(this.gdp / 2);
     }
 }
 
-// D3 Projection
-// Start centered
+// D3 Setup
 let projection = d3.geoMercator()
     .scale(150)
     .translate([window.innerWidth / 2, window.innerHeight / 1.5]);
@@ -67,98 +77,217 @@ let pathGenerator = d3.geoPath()
     .projection(projection)
     .context(ctx);
 
-// Initialization
-async function startGame(strategy) {
-    document.getElementById('startScreen').classList.add('hidden');
+// --- Initialization ---
 
-    // Canvas Resize
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+window.onload = async () => {
+    // 1. Resizing
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
-    // Reset Projection Center
-    projection.translate([canvas.width / 2, canvas.height / 1.5]);
-
+    // 2. Load Data
     try {
         await loadMapData();
-        initNations(strategy);
-        gameState.running = true;
-
-        // Initial Center & Zoom (Fit World)
-        // Auto-fit logic ideally, but hardcoding startup zoom is safer for now
-        let scale = Math.min(canvas.width, canvas.height) / 6.5;
-        projection.scale(scale);
-
-        // Centering
-        projection.translate([canvas.width / 2, canvas.height / 2]);
-
-        requestAnimationFrame(gameLoop);
+        draw(); // Initial draw (empty/neutral map)
     } catch (e) {
-        console.error("Failed to load map:", e);
-        alert("Error loading map data. Please ensure 'data/world.json' exists.");
+        console.error("Map Error", e);
     }
+};
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    projection.translate([canvas.width / 2, canvas.height / 1.5]);
+    if (gameState.running) draw();
 }
 
 async function loadMapData() {
-    // Load TopoJSON
     const response = await fetch('data/world.json');
-    if (!response.ok) throw new Error("Network response was not ok");
     const topology = await response.json();
-
-    // Convert to GeoJSON features
-    // We assume the object key is 'countries' or similar. 
-    // Checking keys if needed, but standard 110m has 'countries'
-    let objects = topology.objects.countries || topology.objects.land;
+    const objects = topology.objects.countries || topology.objects.land;
     const geojson = topojson.feature(topology, objects);
 
     countries = geojson.features.map(f => new Country(f));
+
+    // Auto-center map scale
+    const b = d3.geoBounds(geojson);
+    // Simple logic to fit width
+    const s = 150; // base
+
     console.log(`Loaded ${countries.length} countries.`);
 }
 
-function initNations(strategy) {
-    nations = [
-        new Nation(0, '#475569'), // Neutral
-        new Nation(1, COLORS[1]), // Player
-        new Nation(2, COLORS[2]),
-        new Nation(3, COLORS[3]),
-        new Nation(4, COLORS[4]),
-        new Nation(5, COLORS[5]),
-        new Nation(6, COLORS[6])
-    ];
+// --- Game Flow ---
 
-    if (strategy === 'aggressive') {
-        nations[1].military = 1.2;
-    } else {
-        nations[1].income = 15;
+window.enterSelectionMode = function () {
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('selectionOverlay').classList.remove('hidden');
+    gameState.mode = 'selection';
+
+    // Zoom in a bit to encourage selection
+    let targetK = 2;
+    let center = [canvas.width / 2, canvas.height / 2];
+    // We can animate this, but for now jump
+    // gameState.transform.k = 2;
+    // gameState.transform.x = ... 
+
+    gameLoop();
+};
+
+function startGamePlay(startCountry) {
+    gameState.mode = 'playing';
+    document.getElementById('selectionOverlay').classList.add('hidden');
+    document.getElementById('gameUI').classList.remove('hidden');
+
+    // Init Nations
+    // Nation 1 is Player
+    nations = [];
+    // 0: Neutral (Abstract)
+    for (let i = 0; i < COLORS.length; i++) {
+        let n = new Nation(i, COLORS[i]);
+        if (i === 1) n.isAI = false;
+        nations.push(n);
     }
 
-    // Assign Starting Countries
-    // Randomize starts
-    let shuffled = [...countries].sort(() => 0.5 - Math.random());
+    gameState.playerNationId = 1;
 
-    // Player Start
-    let playerStart = shuffled.find(c => c.area > 0.05); // Reasonable size
-    if (playerStart) {
-        conquerCountry(playerStart, 1);
-        // Center view on player?
+    // Assign Player Country
+    conquerCountry(startCountry, 1, true); // True = instant/free
+
+    // Assign AI Nations (Randomly pick 5-6 strong countries)
+    let candidates = countries.filter(c => c.owner === 0 && c.gdp > 500);
+    // Shuffle
+    candidates.sort(() => .5 - Math.random());
+
+    let aiCount = 0;
+    for (let c of candidates) {
+        if (aiCount >= nations.length - 2) break; // Keep some neutral
+        let nationId = aiCount + 2;
+        conquerCountry(c, nationId, true);
+        aiCount++;
     }
 
-    // AI Starts
-    for (let i = 2; i < nations.length; i++) {
-        let aiStart = shuffled.find(c => c.owner === 0 && c.area > 0.02);
-        if (aiStart) conquerCountry(aiStart, i);
-    }
+    gameState.running = true;
+    updateUI();
 }
 
-function conquerCountry(country, nationId) {
+// --- Core Mechanics ---
+
+function conquerCountry(country, nationId, instant = false) {
     if (country.owner !== 0) {
-        nations[country.owner].controlledCountries--;
+        let oldOwner = nations[country.owner];
+        oldOwner.controlledCountries--;
+        oldOwner.gdp -= country.gdp;
     }
+
     country.owner = nationId;
-    nations[nationId].controlledCountries++;
-    country.power = 500; // Reset power/health on conquest
+    let newOwner = nations[nationId];
+    newOwner.controlledCountries++;
+    newOwner.gdp += country.gdp;
+
+    if (instant) {
+        country.reserves = country.gdp; // Full restore
+    } else {
+        country.reserves = Math.floor(country.gdp * 0.1); // Conquered lands are weak initially
+    }
 }
 
-// Interaction Tracking
+// Tick Logic (60fps)
+function updateGameLogic() {
+    if (gameState.mode !== 'playing') return;
+
+    // Income Cycle (every 1 sec approx)
+    gameState.incomeCheck++;
+    if (gameState.incomeCheck > 60) {
+        // Liquidity Growth based on GDP
+        // Dummynation: Liquidity grows, but is capped or slows down. 
+        // Spending liquidity sends troops.
+
+        nations.forEach(n => {
+            if (n.id === 0) return;
+            // Income = GDP * Multiplier
+            // Simple model:
+            let income = n.gdp * 0.1;
+            n.money += income;
+        });
+
+        // Troop Replenishment in Countries
+        countries.forEach(c => {
+            if (c.owner !== 0) {
+                // Reserves grow back to GDP cap
+                if (c.reserves < c.gdp) {
+                    c.reserves += Math.ceil(c.gdp * 0.05);
+                }
+            }
+        });
+
+        gameState.incomeCheck = 0;
+        updateUI(); // Update UI numbers
+    }
+
+    // AI Logic Cycle (every 0.5 sec)
+    gameState.aiCheck++;
+    if (gameState.aiCheck > 30) {
+        runAI();
+        gameState.aiCheck = 0;
+    }
+}
+
+function runAI() {
+    nations.forEach(n => {
+        if (!n.isAI || n.id === 0) return;
+
+        // Simple AI: 
+        // 1. Accumulate money
+        // 2. Pick a random neighbor of any owned country (expensive to find)
+        // Optimization: Just pick a random owned country, try to attack random global target 
+        // (Dummynation allows global attacks usually, distance matters for cost)
+
+        if (n.money > 1000) {
+            // Try to attack
+            // Pick random target that is NOT owner
+            let target = countries[Math.floor(Math.random() * countries.length)];
+            if (target.owner !== n.id) {
+                attemptAttack(n, target, 50); // Commit 50%
+            }
+        }
+    });
+}
+
+function attemptAttack(attackerNation, targetCountry, percent) {
+    if (attackerNation.money <= 0) return;
+
+    // Calculate Attack Power
+    // Based on Liquidity spent
+    let liquidityToSpend = (attackerNation.money * percent) / 100;
+
+    // Cost calculation:
+    // Distance penalty? For now, flat based on target strength.
+    // Dummynation: You spend Liquidity to create an "Attack Force" derived from reserves?
+    // Actually Dummynation: Liquidity buys gun power. Reserves are local HP.
+
+    // Simplified:
+    // Spend Liquidity -> Damage Target Reserves
+    // If Target Reserves < 0 -> Conquer
+
+    let damage = liquidityToSpend * attackerNation.military;
+
+    // Defense Bonus
+    let defense = targetCountry.reserves;
+
+    // Result
+    if (damage > defense) {
+        // Successful Conquest
+        attackerNation.money -= liquidityToSpend; // Cost is paid
+        conquerCountry(targetCountry, attackerNation.id);
+    } else {
+        // Failed, but damaged
+        attackerNation.money -= liquidityToSpend;
+        targetCountry.reserves -= damage; // Reduce reserves
+    }
+}
+
+// --- Interaction ---
+
 let lastMouse = { x: 0, y: 0 };
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
@@ -174,7 +303,6 @@ canvas.addEventListener('mousemove', e => {
         const dx = e.clientX - lastMouse.x;
         const dy = e.clientY - lastMouse.y;
 
-        // Pan logic: modify projection translate
         const currTranslate = projection.translate();
         projection.translate([currTranslate[0] + dx, currTranslate[1] + dy]);
 
@@ -184,10 +312,9 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseup', e => {
     isDragging = false;
-    // Click detection (if didn't drag much)
     const dist = Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y);
     if (dist < 5) {
-        handleInteraction(e.clientX, e.clientY);
+        handleClick(e.clientX, e.clientY);
     }
 });
 
@@ -196,190 +323,160 @@ canvas.addEventListener('wheel', e => {
     const zoomIntensity = 0.001;
     const currentScale = projection.scale();
     const newScale = currentScale - (e.deltaY * zoomIntensity * currentScale);
-
-    // Clamp zoom
-    if (newScale > 50 && newScale < 5000) {
+    if (newScale > 50 && newScale < 10000) {
         projection.scale(newScale);
     }
 });
 
-function handleInteraction(mx, my) {
-    // Inverse projection is tricky with just D3 Geo logic on Canvas if we don't have the backing data structure optimized.
-    // However, d3.geoPath.bounds is fast enough for interaction? No.
-    // Inverse projection to [lon, lat]
+function handleClick(mx, my) {
     const coords = projection.invert([mx, my]);
+    if (!coords) return;
 
-    if (coords) {
-        // Check which country contains this point
-        // d3.geoContains is robust
-        const clicked = countries.find(c => d3.geoContains(c.feature, coords));
-        if (clicked) {
-            handleCountryClick(clicked);
+    const clicked = countries.find(c => d3.geoContains(c.feature, coords));
+    if (clicked) {
+        if (gameState.mode === 'selection') {
+            startGamePlay(clicked);
+        } else if (gameState.mode === 'playing') {
+            handleCountryAction(clicked);
         }
     }
 }
 
-function handleCountryClick(country) {
-    const player = nations[1];
-    console.log("Clicked:", country.name);
+function handleCountryAction(country) {
+    const player = nations[gameState.playerNationId];
 
-    if (gameState.selectedMode === 'attack') {
-        if (country.owner !== 1) {
-            const cost = calculateAttackCost(country);
+    if (gameState.selectedAction === 'attack') {
+        if (country.owner !== player.id) {
+            // Attack!
+            // Sound effect trigger here
+            attemptAttack(player, country, gameState.troopPercent);
+        }
+    } else if (gameState.selectedAction === 'reinforce') {
+        // Boost reserves
+        if (country.owner === player.id) {
+            let cost = 100;
             if (player.money >= cost) {
                 player.money -= cost;
-
-                // Simple battle
-                // Dummynation has "deployment" logic. Here we just simple-conquer or damage.
-                // Attack power vs defense
-                let attackPower = player.military * 1000;
-                if (attackPower > country.power) {
-                    conquerCountry(country, 1);
-                } else {
-                    country.power -= attackPower * 0.1;
-                }
-            }
-        }
-    } else if (gameState.selectedMode === 'reinforce') {
-        if (country.owner === 1) {
-            if (player.money >= 100) {
-                player.money -= 100;
-                country.power += 200;
+                country.reserves += 500;
             }
         }
     }
 
+    // Select for highlighting
     gameState.selectedCountryId = country.id;
     updateUI();
 }
 
-function calculateAttackCost(country) {
-    // Cost scales with size/power
-    return Math.floor(100 + country.power / 10);
-}
+// --- Rendering ---
 
-// Game Loop
 function gameLoop() {
-    if (!gameState.running) return;
-
-    updateLogic();
+    updateGameLogic();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-function updateLogic() {
-    gameState.incomeCheck++;
-    if (gameState.incomeCheck > 60) {
-        // Income Tick
-        nations.forEach(n => {
-            if (n.id === 0) return;
-            // Income based on controlled countries
-            // Dummynation heavily relies on Area and GDP (we act as Area = GDP for now)
-            let income = n.income + (n.controlledCountries * 5);
-            n.money += income;
-        });
-
-        // AI Expansion Logic
-        nations.forEach(n => {
-            if (n.isAI && n.money > 200) {
-                // Try to expand to random country
-                // Ideally neighbor, but random for MVP
-                let target = countries[Math.floor(Math.random() * countries.length)];
-                if (target.owner !== n.id) {
-                    let cost = calculateAttackCost(target);
-                    if (n.money > cost * 2) {
-                        n.money -= cost;
-                        conquerCountry(target, n.id);
-                    }
-                }
-            }
-        });
-
-        gameState.incomeCheck = 0;
-        updateUI();
-    }
-}
-
 function draw() {
-    // Clear
+    // 1. Clear
     ctx.fillStyle = '#0B0F19';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Countries
+    // 2. Map Settings
+    pathGenerator = d3.geoPath().projection(projection).context(ctx);
+
+    // 3. Draw Sea/Sphere
     ctx.beginPath();
     pathGenerator({ type: "Sphere" });
+    ctx.fillStyle = '#111827';
+    ctx.fill();
     ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
     ctx.stroke();
 
+    // 4. Draw Countries
+    // Batch path generation if possible, but canvas context requires re-pathing for fill change
     countries.forEach(c => {
         ctx.beginPath();
         pathGenerator(c.feature);
 
-        // Fill based on owner
         if (c.owner === 0) {
-            ctx.fillStyle = '#1e293b';
-            // Hover effect
-            // if (c.id === gameState.hoverCountryId) ctx.fillStyle = '#334155';
+            ctx.fillStyle = '#1f2937';
         } else {
             ctx.fillStyle = nations[c.owner].color;
         }
         ctx.fill();
 
-        // Borders
         ctx.lineWidth = 0.5;
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
         ctx.stroke();
 
-        // Selection Highlight
+        // Highlight Selected
         if (gameState.selectedCountryId === c.id) {
             ctx.lineWidth = 2;
-            ctx.strokeStyle = '#00f3ff';
+            ctx.strokeStyle = '#ffffff';
             ctx.stroke();
         }
     });
 }
 
-// UI Updates
+// --- UI Helpers ---
+
+window.setMode = function (mode) {
+    gameState.selectedAction = mode;
+    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + mode).classList.add('active');
+};
+
+window.updateSlider = function (val) {
+    gameState.troopPercent = val;
+    document.getElementById('troop-percent').innerText = val;
+};
+
+window.upgrade = function (type) {
+    const player = nations[gameState.playerNationId];
+    if (type === 'research') {
+        if (player.money >= 1000) {
+            player.money -= 1000;
+            player.military += 0.1;
+            updateUI();
+        }
+    }
+};
+
 function updateUI() {
-    if (!nations[1]) return;
-    const p = nations[1];
+    if (!gameState.running) return;
+    const player = nations[gameState.playerNationId];
 
-    document.getElementById('res-money').innerText = formatNumber(p.money);
-    document.getElementById('res-power').innerText = p.military.toFixed(1);
+    document.getElementById('res-money').innerText = formatNumber(player.money);
+    document.getElementById('res-gdp').innerText = formatNumber(player.gdp) + "M";
 
-    // Control %
-    const totalC = countries.length;
-    let pct = (p.controlledCountries / totalC * 100).toFixed(1);
+    // Calc control
+    let worldGDP = nations.reduce((acc, n) => acc + n.gdp, 0); // Approx sum
+    let pct = ((player.gdp / worldGDP) * 100).toFixed(1);
     document.getElementById('res-control').innerText = pct + '%';
 
     updateLeaderboard();
 }
 
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return Math.floor(num);
-}
-
 function updateLeaderboard() {
     const lb = document.getElementById('leaderboard');
     if (!lb) return;
-    const sorted = [...nations].filter(n => n.id !== 0).sort((a, b) => b.controlledCountries - a.controlledCountries);
 
-    let html = '<div style="margin-bottom:10px; color:#94a3b8; font-size:0.8rem;">DOMINATION RANKING</div>';
+    // Sort by GDP
+    const sorted = [...nations].filter(n => n.id !== 0).sort((a, b) => b.gdp - a.gdp);
+
+    let html = '<div style="margin-bottom:10px; color:#94a3b8; font-size:0.8rem;">POWER RANKING</div>';
     sorted.forEach((n, i) => {
         html += `
             <div class="lb-row">
                 <span class="lb-name" style="color:${n.color}">${i + 1}. ${n.name}</span>
-                <span>${n.controlledCountries}</span>
+                <span>${formatNumber(n.gdp)}</span>
             </div>
         `;
     });
     lb.innerHTML = html;
 }
 
-// Global Exports
-window.startGame = startGame;
-window.setMode = setMode;
-window.upgrade = upgrade;
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'T';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'B';
+    return Math.floor(num);
+}

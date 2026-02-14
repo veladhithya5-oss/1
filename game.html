@@ -87,10 +87,12 @@
             display: flex;
             gap: 10px;
             pointer-events: auto;
-            background: rgba(15, 23, 42, 0.9);
-            padding: 10px;
-            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 15px 25px;
+            border-radius: 16px;
             border: 1px solid var(--cosmos-border);
+            align-items: center;
+            backdrop-filter: blur(10px);
         }
 
         .action-btn {
@@ -116,8 +118,25 @@
             color: var(--neon-cyan);
         }
 
-        .action-btn i {
-            font-size: 1.5rem;
+        .troop-slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 20px;
+            width: 200px;
+        }
+
+        .troop-slider-label {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            margin-bottom: 5px;
+            font-family: var(--font-heading);
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            background: transparent;
         }
 
         /* Country Label Overlay */
@@ -160,13 +179,13 @@
         }
 
         .modal-content {
-            background: var(--bg-dark);
+            background: rgba(11, 15, 25, 0.95);
             border: 1px solid var(--neon-cyan);
             padding: 40px;
             border-radius: 16px;
             text-align: center;
-            max-width: 500px;
-            box-shadow: 0 0 50px rgba(0, 243, 255, 0.2);
+            max-width: 600px;
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.1);
         }
 
         .hidden {
@@ -182,6 +201,7 @@
             padding: 15px;
             border-radius: 8px;
             pointer-events: none;
+            min-width: 200px;
         }
 
         .lb-row {
@@ -195,6 +215,24 @@
         .lb-name {
             font-weight: bold;
         }
+
+        /* Selection Overlay Text */
+        #selectionOverlay {
+            position: absolute;
+            top: 100px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        #selectionOverlay h2 {
+            text-shadow: 0 0 20px black;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 20px;
+            display: inline-block;
+        }
     </style>
 </head>
 
@@ -204,41 +242,34 @@
     <div id="startScreen" class="game-modal">
         <div class="modal-content">
             <h1 style="color: var(--neon-cyan); margin-bottom: 10px;">GLOBAL DOMINATION</h1>
-            <p style="margin-bottom: 30px;">Select your starting nation strategy. Expand your territory, manage
-                liquidity, and conquer the world map.</p>
+            <p style="margin-bottom: 30px;">Conquer the world in real-time. Manage your economy, deploy troops, and
+                dominate.</p>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-                <button class="btn btn-primary" onclick="startGame('aggressive')">
-                    Aggressive
-                    <span style="display:block; font-size:0.7rem; opacity:0.7; margin-top:5px;">+20% Attack
-                        Power<br>-10% Income</span>
-                </button>
-                <button class="btn btn-primary" style="border-color: var(--neon-purple); color: var(--neon-purple);"
-                    onclick="startGame('economic')">
-                    Economic
-                    <span style="display:block; font-size:0.7rem; opacity:0.7; margin-top:5px;">+20% Liquidity<br>-10%
-                        Defense</span>
-                </button>
+            <button class="btn btn-primary" onclick="enterSelectionMode()">
+                Select Country
+            </button>
+
+            <div style="margin-top: 20px;">
+                <a href="index.html" style="color: var(--text-secondary); font-size: 0.9rem;">Return to Main Site</a>
             </div>
-            <a href="index.html" style="color: var(--text-secondary); font-size: 0.9rem;">Return to Main Site</a>
         </div>
     </div>
 
     <!-- UI Overlay -->
-    <div class="ui-layer">
+    <div class="ui-layer hidden" id="gameUI">
         <div class="top-bar">
             <div class="resource-card">
                 <span class="res-icon">💰</span>
                 <div>
-                    <span class="res-label">LIQUIDITY (M$)</span>
+                    <span class="res-label">LIQUIDITY</span>
                     <div id="res-money" class="res-val">0</div>
                 </div>
             </div>
             <div class="resource-card">
-                <span class="res-icon">⚔️</span>
+                <span class="res-icon">📈</span>
                 <div>
-                    <span class="res-label">MILITARY POWER</span>
-                    <div id="res-power" class="res-val">0</div>
+                    <span class="res-label">GDP</span>
+                    <div id="res-gdp" class="res-val">0</div>
                 </div>
             </div>
             <div class="resource-card">
@@ -259,15 +290,26 @@
                 <i>🎯</i>
                 <span>Attack</span>
             </button>
+
+            <div class="troop-slider-container">
+                <div class="troop-slider-label">TROOP DEPLOYMENT: <span id="troop-percent">50</span>%</div>
+                <input type="range" min="1" max="100" value="50" id="troopSlider" oninput="updateSlider(this.value)">
+            </div>
+
             <button class="action-btn" id="btn-reinforce" onclick="setMode('reinforce')">
                 <i>🛡️</i>
                 <span>Defend</span>
             </button>
+
             <button class="action-btn" id="btn-research" onclick="upgrade('research')">
                 <i>🔬</i>
-                <span>Research (500$)</span>
+                <span>Research</span>
             </button>
         </div>
+    </div>
+
+    <div id="selectionOverlay" class="hidden">
+        <h2>Click a Country to Start</h2>
     </div>
 
     <!-- Game View -->
