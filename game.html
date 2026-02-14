@@ -150,6 +150,43 @@
             transform: translate(-50%, -50%);
         }
 
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+            z-index: 50;
+        }
+
+        .btn-zoom {
+            width: 50px;
+            height: 50px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-size: 1.8rem;
+            font-weight: bold;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-zoom:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+
+        /* Minimap moved up slightly to make room or removed if overlapping */
         /* Minimap */
         .minimap {
             position: absolute;
@@ -310,6 +347,11 @@
 
     <div id="selectionOverlay" class="hidden">
         <h2>Click a Country to Start</h2>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="btn-zoom" onclick="changeZoom(1.5)">+</button>
+        <button class="btn-zoom" onclick="changeZoom(0.66)">-</button>
     </div>
 
     <!-- Game View -->

@@ -327,14 +327,49 @@ canvas.addEventListener('mouseup', e => {
 
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    const zoomIntensity = 0.001;
-    const currentScale = projection.scale();
-    const newScale = currentScale - (e.deltaY * zoomIntensity * currentScale);
-    if (newScale > 50 && newScale < 10000) {
-        projection.scale(newScale);
-        // Better zooming towards mouse requires modifying translate too
-    }
+    // Zoom towards mouse pointer
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    handleZoom(zoomFactor, [e.clientX, e.clientY]);
 });
+
+function changeZoom(factor) {
+    // Zoom towards center of screen
+    handleZoom(factor, [canvas.width / 2, canvas.height / 2]);
+}
+
+function handleZoom(factor, centerPoint) {
+    const currentScale = projection.scale();
+    const newScale = currentScale * factor;
+
+    // Clamp zoom
+    if (newScale < 50 || newScale > 50000) return;
+
+    // 1. Get the coordinates of the centerPoint in the map's domain (lon/lat) *before* rescaling
+    // projection.invert return [lon, lat]
+    const p0 = projection.invert(centerPoint);
+
+    // If we are pointing at empty space (off-globe), we just zoom to center of canvas
+    if (!p0) {
+        projection.scale(newScale);
+        return;
+    }
+
+    // 2. Set the new scale
+    projection.scale(newScale);
+
+    // 3. Get where that same lon/lat projects to *now*
+    const p1 = projection(p0);
+
+    // 4. Translate projection to move p1 back to centerPoint
+    const currentTranslate = projection.translate();
+    projection.translate([
+        currentTranslate[0] + (centerPoint[0] - p1[0]),
+        currentTranslate[1] + (centerPoint[1] - p1[1])
+    ]);
+}
+
+// Expose to window
+window.changeZoom = changeZoom;
 
 function handleClick(mx, my) {
     const coords = projection.invert([mx, my]);
